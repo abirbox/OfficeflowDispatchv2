@@ -8,7 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from '@/components/ui/dropdown-menu';
 import { toast } from '@/components/ui/sonner';
-import { Plus, Filter, X, ChevronLeft, ChevronRight, ChevronDown, ChevronUp, MoreVertical } from 'lucide-react';
+import { Plus, Filter, X, ChevronLeft, ChevronRight, ChevronDown, ChevronUp, MoreVertical, Columns as ColumnsIcon, Download, GripVertical, Eye, EyeOff } from 'lucide-react';
 import useAuthStore from '@/stores/authStore';
 import { hasPermission } from '@/lib/permissions';
 import { CONFIRM_BADGE } from './_shared';
@@ -48,6 +48,47 @@ const formatScheduleDate = (iso) => {
   return `${days[d.getDay()]}, ${dd} ${months[d.getMonth()]} ${d.getFullYear()}`;
 };
 
+// Column catalogue. Each entry: { key, label, financial?, align?, csv(row), value(row) }
+// `value` returns a plain string used both as fallback UI text and CSV cell.
+// Interactive cells (status/confirmation/confirmed-by/manage) are rendered separately.
+const COLUMN_CATALOG = [
+  { key: 'date',        label: 'Date',                 csv: (r) => formatScheduleDate(r.date) },
+  { key: 'shift',       label: 'Shift',                csv: (r) => r.shift_type || '' },
+  { key: 'start_time',  label: 'Start Time',           csv: (r) => r.start_time || '' },
+  { key: 'end_time',    label: 'End Time',             csv: (r) => r.end_time || '' },
+  { key: 'duty_hours',  label: 'Duty Hours',           csv: (r) => r.duty_hours != null ? String(r.duty_hours) : '' },
+  { key: 'duty_rate',   label: 'Duty Rate ($)',        financial: true, csv: (r) => r.duty_rate != null ? String(r.duty_rate) : '' },
+  { key: 'billing_rate',label: 'Billing Rate ($)',     financial: true, csv: (r) => r.billing_rate != null ? String(r.billing_rate) : '' },
+  { key: 'site',        label: 'Site',                 csv: (r) => r.post_site_name || '' },
+  { key: 'city',        label: 'City',                 csv: (r) => r.city || '' },
+  { key: 'post_pin',    label: 'Post Site Pin',        csv: (r) => r.post_pin || '' },
+  { key: 'officer',     label: 'Security Officer',     csv: (r) => r.officer_name || '' },
+  { key: 'shift_status',label: 'Shift Status',         csv: (r) => r.shift_status || '' },
+  { key: 'confirmation',label: 'Upcoming Shift Status',csv: (r) => r.confirmation_status || '' },
+  { key: 'confirmed_by',label: 'Confirmed By',         csv: (r) => [r.last_modified_by_name, r.last_modified_action, (r.last_modified_at || '').slice(0, 16).replace('T', ' ')].filter(Boolean).join(' · ') },
+  { key: 'remarks',     label: 'Remarks',              csv: (r) => r.last_modified_remarks || r.remarks || '' },
+  { key: 'client',      label: 'Client',               csv: (r) => r.client_name || '' },
+  { key: 'vendor',      label: 'Vendor',               csv: (r) => r.vendor_name || '' },
+];
+
+// Convert a matrix of values into a CSV string (RFC 4180-compatible quoting).
+const buildCsv = (headers, rows) => {
+  const esc = (v) => {
+    const s = v == null ? '' : String(v);
+    return /[",\n\r]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+  };
+  return [headers.map(esc).join(','), ...rows.map((row) => row.map(esc).join(','))].join('\r\n');
+};
+
+const downloadFile = (filename, mime, content) => {
+  const blob = new Blob(['\uFEFF' + content], { type: mime + ';charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = filename;
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 500);
+};
+
 const DispatchSchedulePage = ({ todayOnly = false }) => {
   const { user } = useAuthStore();
   const canCreate = hasPermission(user, 'dispatch.schedule.create');
@@ -84,6 +125,70 @@ const DispatchSchedulePage = ({ todayOnly = false }) => {
   const [statusDialog, setStatusDialog] = useState(null); // { row, status }
   const [statusRemarks, setStatusRemarks] = useState('');
   const [filtersOpen, setFiltersOpen] = useState(false);
+
+  // ---- Column chooser: per-user visibility + order, persisted in localStorage ----
+  const availableCols = COLUMN_CATALOG.filter((c) => canFinancial || !c.financial);
+  const storageKey = `dispatch.schedule.columns.${user?.id || 'anon'}`;
+  const defaultConfig = availableCols.map((c) => ({ key: c.key, visible: true }));
+
+  const [columnConfig, setColumnConfig] = useState(() => {
+    try {
+      const raw = localStorage.getItem(storageKey);
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        const known = new Set(availableCols.map((c) => c.key));
+        // keep only known keys in stored order, then append any new keys
+        const cleaned = parsed.filter((c) => known.has(c.key));
+        availableCols.forEach((c) => {
+          if (!cleaned.find((x) => x.key === c.key)) cleaned.push({ key: c.key, visible: true });
+        });
+        return cleaned;
+      }
+    } catch { /* ignore */ }
+    return defaultConfig;
+  });
+
+  useEffect(() => {
+    try { localStorage.setItem(storageKey, JSON.stringify(columnConfig)); } catch { /* ignore */ }
+  }, [columnConfig, storageKey]);
+
+  const [chooserOpen, setChooserOpen] = useState(false);
+  const [dragKey, setDragKey] = useState(null);
+
+  const visibleCols = columnConfig
+    .filter((c) => c.visible)
+    .map((c) => availableCols.find((x) => x.key === c.key))
+    .filter(Boolean);
+
+  const toggleColumn = (key) =>
+    setColumnConfig((prev) => prev.map((c) => (c.key === key ? { ...c, visible: !c.visible } : c)));
+  const moveColumn = (fromKey, toKey) => {
+    if (!fromKey || !toKey || fromKey === toKey) return;
+    setColumnConfig((prev) => {
+      const arr = prev.slice();
+      const fromIdx = arr.findIndex((c) => c.key === fromKey);
+      const toIdx = arr.findIndex((c) => c.key === toKey);
+      if (fromIdx < 0 || toIdx < 0) return prev;
+      const [moved] = arr.splice(fromIdx, 1);
+      arr.splice(toIdx, 0, moved);
+      return arr;
+    });
+  };
+  const resetColumns = () => setColumnConfig(defaultConfig);
+
+  const exportCsv = () => {
+    const headers = visibleCols.map((c) => c.label);
+    const body = rows.map((r) => visibleCols.map((c) => c.csv(r)));
+    const csv = buildCsv(headers, body);
+    const stamp = new Date().toISOString().slice(0, 19).replace(/[:T]/g, '-');
+    downloadFile(`dispatch-schedule-${stamp}.csv`, 'text/csv', csv);
+    toast.success(`Exported ${rows.length} row${rows.length === 1 ? '' : 's'} to CSV`);
+  };
+
+  // Sticky styling shared by the first column's <th>/<td>. Left-0 keeps it
+  // visible while horizontal-scrolling wide tables.
+  const stickyFirstTh = 'sticky left-0 z-20 bg-[#F8FAFC] dark:bg-[#0F0F11]';
+  const stickyFirstTd = 'sticky left-0 z-10 bg-white dark:bg-[#18181B]';
 
   const load = useCallback(async (silent = false) => {
     if (!silent) setLoading(true);
@@ -227,11 +332,32 @@ const DispatchSchedulePage = ({ todayOnly = false }) => {
           </h1>
           <p className="text-sm text-[#64748B] mt-1">{total} record{total !== 1 && 's'}</p>
         </div>
-        {canCreate && (
-          <Button onClick={openCreate} className="bg-[#4F46E5] hover:bg-[#4338CA]" data-testid="new-schedule-btn">
-            <Plus className="w-4 h-4 mr-2" /> New Schedule
+        <div className="flex items-center gap-2 flex-wrap">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setChooserOpen(true)}
+            data-testid="open-column-chooser"
+            className="h-9"
+          >
+            <ColumnsIcon className="w-4 h-4 mr-2" /> Columns
           </Button>
-        )}
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={exportCsv}
+            disabled={rows.length === 0}
+            data-testid="export-csv-btn"
+            className="h-9"
+          >
+            <Download className="w-4 h-4 mr-2" /> Export CSV
+          </Button>
+          {canCreate && (
+            <Button onClick={openCreate} className="bg-[#4F46E5] hover:bg-[#4338CA]" data-testid="new-schedule-btn">
+              <Plus className="w-4 h-4 mr-2" /> New Schedule
+            </Button>
+          )}
+        </div>
       </div>
 
       {/* Filters (collapsible) */}
@@ -345,155 +471,144 @@ const DispatchSchedulePage = ({ todayOnly = false }) => {
 
       {/* Table */}
       <div className="bg-white dark:bg-[#18181B] border border-[#E2E8F0] dark:border-[#27272A] rounded-xl overflow-x-auto">
-        <table className="w-full min-w-[1800px] text-sm table-auto">
+        <table className="w-full text-sm table-auto">
           <thead className="bg-[#F8FAFC] dark:bg-[#0F0F11] text-left text-xs uppercase tracking-wider text-[#64748B]">
             <tr className="whitespace-nowrap">
-              <th className="px-3 py-3">Date</th>
-              <th className="px-3 py-3">Shift</th>
-              <th className="px-3 py-3">Start Time</th>
-              <th className="px-3 py-3">End Time</th>
-              <th className="px-3 py-3">Duty Hours</th>
-              {canFinancial && <>
-                <th className="px-3 py-3">Duty Rate ($)</th>
-                <th className="px-3 py-3">Billing Rate ($)</th>
-              </>}
-              <th className="px-3 py-3">Site</th>
-              <th className="px-3 py-3">City</th>
-              <th className="px-3 py-3">Post Site Pin</th>
-              <th className="px-3 py-3">Security Officer</th>
-              <th className="px-3 py-3">Shift Status</th>
-              <th className="px-3 py-3">Upcoming Shift Status</th>
-              <th className="px-3 py-3">Confirmed By</th>
-              <th className="px-3 py-3">Remarks</th>
-              <th className="px-3 py-3">Client</th>
-              <th className="px-3 py-3">Vendor</th>
-              <th className="px-3 py-3 text-right">Manage</th>
+              {visibleCols.map((c, i) => (
+                <th
+                  key={c.key}
+                  className={`px-3 py-3 ${i === 0 ? stickyFirstTh : ''}`}
+                  data-testid={`col-header-${c.key}`}
+                >
+                  {c.label}
+                </th>
+              ))}
+              <th className="px-3 py-3 text-right sticky right-0 z-20 bg-[#F8FAFC] dark:bg-[#0F0F11]">Manage</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-[#E2E8F0] dark:divide-[#27272A]">
-            {loading ? <tr><td colSpan={20} className="px-4 py-8 text-center text-[#64748B]">Loading…</td></tr>
-            : rows.length === 0 ? <tr><td colSpan={20} className="px-4 py-8 text-center text-[#64748B]">No dispatch schedules found</td></tr>
-            : rows.map(r => (
-              <tr key={r.id} data-testid={`sched-${r.id}`}>
-                <td className="px-3 py-2 whitespace-nowrap text-[#334155] dark:text-[#E4E4E7]" data-testid={`sched-date-${r.id}`}>{formatScheduleDate(r.date)}</td>
-                <td className="px-3 py-2">{r.shift_type || '—'}</td>
-                <td className="px-3 py-2 whitespace-nowrap">{r.start_time || '—'}</td>
-                <td className="px-3 py-2 whitespace-nowrap">{r.end_time || '—'}</td>
-                <td className="px-3 py-2">{r.duty_hours != null ? `${r.duty_hours}h` : '—'}</td>
-                {canFinancial && <>
-                  <td className="px-3 py-2">{r.duty_rate ?? '—'}</td>
-                  <td className="px-3 py-2">{r.billing_rate ?? '—'}</td>
-                </>}
-                <td className="px-3 py-2">{r.post_site_name || '—'}</td>
-                <td className="px-3 py-2">{r.city || '—'}</td>
-                <td className="px-3 py-2 font-mono text-xs">{r.post_pin || '—'}</td>
-                <td className="px-3 py-2">{r.officer_name || '—'}</td>
-                <td className="px-3 py-2">
-                  {canEdit && r.shift_status !== 'Cancelled' ? (
-                    <Select
-                      value={r.shift_status}
-                      onValueChange={(v) => openStatusDialog(r, v)}
-                      disabled={!!statusBusy && statusBusy.startsWith(`${r.id}:`)}
-                    >
-                      <SelectTrigger
-                        className={`h-8 w-[150px] text-xs font-medium border ${STATUS_BADGE_MAP[r.shift_status] || 'bg-slate-100 text-slate-600'}`}
-                        data-testid={`status-select-${r.id}`}
+            {loading ? <tr><td colSpan={visibleCols.length + 1} className="px-4 py-8 text-center text-[#64748B]">Loading…</td></tr>
+            : rows.length === 0 ? <tr><td colSpan={visibleCols.length + 1} className="px-4 py-8 text-center text-[#64748B]">No dispatch schedules found</td></tr>
+            : rows.map(r => {
+              const cellFor = (key) => {
+                switch (key) {
+                  case 'date':         return <span className="whitespace-nowrap text-[#334155] dark:text-[#E4E4E7]" data-testid={`sched-date-${r.id}`}>{formatScheduleDate(r.date)}</span>;
+                  case 'shift':        return r.shift_type || '—';
+                  case 'start_time':   return <span className="whitespace-nowrap">{r.start_time || '—'}</span>;
+                  case 'end_time':     return <span className="whitespace-nowrap">{r.end_time || '—'}</span>;
+                  case 'duty_hours':   return r.duty_hours != null ? `${r.duty_hours}h` : '—';
+                  case 'duty_rate':    return r.duty_rate ?? '—';
+                  case 'billing_rate': return r.billing_rate ?? '—';
+                  case 'site':         return r.post_site_name || '—';
+                  case 'city':         return r.city || '—';
+                  case 'post_pin':     return <span className="font-mono text-xs">{r.post_pin || '—'}</span>;
+                  case 'officer':      return r.officer_name || '—';
+                  case 'shift_status':
+                    return canEdit && r.shift_status !== 'Cancelled' ? (
+                      <Select
+                        value={r.shift_status}
+                        onValueChange={(v) => openStatusDialog(r, v)}
+                        disabled={!!statusBusy && statusBusy.startsWith(`${r.id}:`)}
                       >
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {SHIFT_STATUSES.filter((s) => s !== 'Cancelled').map((s) => (
-                          <SelectItem key={s} value={s} data-testid={`status-option-${s.replace(/\s+/g, '-').toLowerCase()}-${r.id}`}>
-                            {s}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  ) : (
-                    <span className={`px-2 py-1 rounded-full text-xs font-medium ${STATUS_BADGE_MAP[r.shift_status] || 'bg-slate-100 text-slate-600'}`}>{r.shift_status}</span>
-                  )}
-                </td>
-                <td className="px-3 py-2">
-                  {canConfirm && r.shift_status !== 'Cancelled' ? (
-                    <Select
-                      value={r.confirmation_status}
-                      onValueChange={(v) => openConfirm(r, v)}
-                    >
-                      <SelectTrigger
-                        className={`h-8 w-[160px] text-xs font-medium border ${CONFIRM_BADGE[r.confirmation_status] || 'bg-slate-100 text-slate-600'}`}
-                        data-testid={`confirmation-select-${r.id}`}
+                        <SelectTrigger className={`h-8 w-[150px] text-xs font-medium border ${STATUS_BADGE_MAP[r.shift_status] || 'bg-slate-100 text-slate-600'}`} data-testid={`status-select-${r.id}`}>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {SHIFT_STATUSES.filter((s) => s !== 'Cancelled').map((s) => (
+                            <SelectItem key={s} value={s} data-testid={`status-option-${s.replace(/\s+/g, '-').toLowerCase()}-${r.id}`}>{s}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    ) : (
+                      <span className={`px-2 py-1 rounded-full text-xs font-medium ${STATUS_BADGE_MAP[r.shift_status] || 'bg-slate-100 text-slate-600'}`}>{r.shift_status}</span>
+                    );
+                  case 'confirmation':
+                    return canConfirm && r.shift_status !== 'Cancelled' ? (
+                      <Select value={r.confirmation_status} onValueChange={(v) => openConfirm(r, v)}>
+                        <SelectTrigger className={`h-8 w-[160px] text-xs font-medium border ${CONFIRM_BADGE[r.confirmation_status] || 'bg-slate-100 text-slate-600'}`} data-testid={`confirmation-select-${r.id}`}>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {CONF_STATUSES.map((s) => (
+                            <SelectItem key={s} value={s} data-testid={`confirmation-option-${s.replace(/\s+/g, '-').toLowerCase()}-${r.id}`}>{s}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    ) : (
+                      <span className={`px-2 py-1 rounded-full text-xs font-medium ${CONFIRM_BADGE[r.confirmation_status] || 'bg-slate-100 text-slate-600'}`}>{r.confirmation_status}</span>
+                    );
+                  case 'confirmed_by':
+                    return r.last_modified_by_name ? (
+                      <button
+                        type="button"
+                        onClick={() => openActions(r)}
+                        className="text-left group focus:outline-none focus:ring-2 focus:ring-[#4F46E5]/40 rounded text-xs"
+                        data-testid={`last-modified-${r.id}`}
+                        title="Click to view full history"
                       >
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {CONF_STATUSES.map((s) => (
-                          <SelectItem key={s} value={s} data-testid={`confirmation-option-${s.replace(/\s+/g, '-').toLowerCase()}-${r.id}`}>
-                            {s}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  ) : (
-                    <span className={`px-2 py-1 rounded-full text-xs font-medium ${CONFIRM_BADGE[r.confirmation_status] || 'bg-slate-100 text-slate-600'}`}>{r.confirmation_status}</span>
-                  )}
-                </td>
-                <td className="px-3 py-2 text-xs">
-                  {r.last_modified_by_name ? (
-                    <button
-                      type="button"
-                      onClick={() => openActions(r)}
-                      className="text-left group focus:outline-none focus:ring-2 focus:ring-[#4F46E5]/40 rounded"
-                      data-testid={`last-modified-${r.id}`}
-                      title="Click to view full history"
+                        <div className="font-medium text-[#4F46E5] group-hover:underline">{r.last_modified_by_name}</div>
+                        <div className="text-[10px] text-[#64748B]">
+                          {r.last_modified_action || 'Modified'} · {(r.last_modified_at || '').slice(0, 16).replace('T', ' ')}
+                        </div>
+                      </button>
+                    ) : <span className="text-[#64748B]">—</span>;
+                  case 'remarks':
+                    return (
+                      <span
+                        className="line-clamp-2 text-[#334155] dark:text-[#E4E4E7] max-w-[220px] block"
+                        title={r.last_modified_remarks || r.remarks || ''}
+                        data-testid={`sched-remarks-${r.id}`}
+                      >
+                        {r.last_modified_remarks || r.remarks || '—'}
+                      </span>
+                    );
+                  case 'client': return r.client_name || '—';
+                  case 'vendor': return r.vendor_name || '—';
+                  default: return '—';
+                }
+              };
+              return (
+                <tr key={r.id} data-testid={`sched-${r.id}`}>
+                  {visibleCols.map((c, i) => (
+                    <td
+                      key={c.key}
+                      className={`px-3 py-2 ${i === 0 ? stickyFirstTd : ''}`}
+                      data-testid={`cell-${c.key}-${r.id}`}
                     >
-                      <div className="font-medium text-[#4F46E5] group-hover:underline">{r.last_modified_by_name}</div>
-                      <div className="text-[10px] text-[#64748B]">
-                        {r.last_modified_action || 'Modified'} · {(r.last_modified_at || '').slice(0, 16).replace('T', ' ')}
-                      </div>
-                    </button>
-                  ) : <span className="text-[#64748B]">—</span>}
-                </td>
-                <td className="px-3 py-2 max-w-[220px]">
-                  <span className="line-clamp-2 text-[#334155] dark:text-[#E4E4E7]" title={r.last_modified_remarks || r.remarks || ''} data-testid={`sched-remarks-${r.id}`}>
-                    {r.last_modified_remarks || r.remarks || '—'}
-                  </span>
-                </td>
-                <td className="px-3 py-2">{r.client_name || '—'}</td>
-                <td className="px-3 py-2">{r.vendor_name || '—'}</td>
-                <td className="px-3 py-2 text-right whitespace-nowrap">
-                  {(canEdit || canCancel || canDelete) ? (
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button size="sm" variant="ghost" className="h-8 w-8 p-0" data-testid={`row-menu-${r.id}`} aria-label="Row actions">
-                          <MoreVertical className="h-4 w-4" />
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end" data-testid={`row-menu-content-${r.id}`}>
-                        {canEdit && (
-                          <DropdownMenuItem onClick={() => openEdit(r)} data-testid={`edit-${r.id}`}>
-                            Edit
-                          </DropdownMenuItem>
-                        )}
-                        {canCancel && r.shift_status !== 'Cancelled' && (
-                          <DropdownMenuItem onClick={() => cancelSchedule(r)} data-testid={`cancel-${r.id}`}>
-                            Cancel
-                          </DropdownMenuItem>
-                        )}
-                        {canDelete && (
-                          <>
-                            {(canEdit || canCancel) && <DropdownMenuSeparator />}
-                            <DropdownMenuItem onClick={() => deleteSchedule(r)} data-testid={`delete-${r.id}`}
-                              className="text-rose-600 focus:text-rose-600 focus:bg-rose-50 dark:focus:bg-rose-950">
-                              Delete
-                            </DropdownMenuItem>
-                          </>
-                        )}
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                  ) : <span className="text-[#64748B]">—</span>}
-                </td>
-              </tr>
-            ))}
+                      {cellFor(c.key)}
+                    </td>
+                  ))}
+                  <td className="px-3 py-2 text-right whitespace-nowrap sticky right-0 z-10 bg-white dark:bg-[#18181B]">
+                    {(canEdit || canCancel || canDelete) ? (
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button size="sm" variant="ghost" className="h-8 w-8 p-0" data-testid={`row-menu-${r.id}`} aria-label="Row actions">
+                            <MoreVertical className="h-4 w-4" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end" data-testid={`row-menu-content-${r.id}`}>
+                          {canEdit && (
+                            <DropdownMenuItem onClick={() => openEdit(r)} data-testid={`edit-${r.id}`}>Edit</DropdownMenuItem>
+                          )}
+                          {canCancel && r.shift_status !== 'Cancelled' && (
+                            <DropdownMenuItem onClick={() => cancelSchedule(r)} data-testid={`cancel-${r.id}`}>Cancel</DropdownMenuItem>
+                          )}
+                          {canDelete && (
+                            <>
+                              {(canEdit || canCancel) && <DropdownMenuSeparator />}
+                              <DropdownMenuItem onClick={() => deleteSchedule(r)} data-testid={`delete-${r.id}`}
+                                className="text-rose-600 focus:text-rose-600 focus:bg-rose-50 dark:focus:bg-rose-950">
+                                Delete
+                              </DropdownMenuItem>
+                            </>
+                          )}
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    ) : <span className="text-[#64748B]">—</span>}
+                  </td>
+                </tr>
+              );
+            })}
           </tbody>
         </table>
       </div>
@@ -687,6 +802,51 @@ const DispatchSchedulePage = ({ todayOnly = false }) => {
                 </div>
               ))}
           </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Column chooser dialog */}
+      <Dialog open={chooserOpen} onOpenChange={setChooserOpen}>
+        <DialogContent className="max-w-md" data-testid="column-chooser-dialog">
+          <DialogHeader>
+            <DialogTitle>Table Columns</DialogTitle>
+            <DialogDescription>Drag to reorder, toggle to show or hide. Saved to this browser per user.</DialogDescription>
+          </DialogHeader>
+          <ul className="space-y-1 max-h-[420px] overflow-y-auto -mx-1 px-1" data-testid="column-chooser-list">
+            {columnConfig.map((c) => {
+              const meta = availableCols.find((x) => x.key === c.key);
+              if (!meta) return null;
+              const isDragging = dragKey === c.key;
+              return (
+                <li
+                  key={c.key}
+                  draggable
+                  onDragStart={(e) => { setDragKey(c.key); try { e.dataTransfer.effectAllowed = 'move'; } catch { /* no-op */ } }}
+                  onDragOver={(e) => { e.preventDefault(); try { e.dataTransfer.dropEffect = 'move'; } catch { /* no-op */ } }}
+                  onDrop={(e) => { e.preventDefault(); moveColumn(dragKey, c.key); setDragKey(null); }}
+                  onDragEnd={() => setDragKey(null)}
+                  className={`flex items-center gap-2 p-2 rounded-lg border ${isDragging ? 'border-[#4F46E5] bg-indigo-50 dark:bg-indigo-950' : 'border-[#E2E8F0] dark:border-[#27272A] bg-white dark:bg-[#18181B]'} select-none`}
+                  data-testid={`column-item-${c.key}`}
+                >
+                  <GripVertical className="w-4 h-4 text-[#94A3B8] cursor-grab active:cursor-grabbing" />
+                  <span className="flex-1 text-sm text-[#0F172A] dark:text-[#FAFAFA]">{meta.label}</span>
+                  <button
+                    type="button"
+                    onClick={() => toggleColumn(c.key)}
+                    className={`inline-flex items-center gap-1 px-2 py-1 rounded-md text-xs font-medium border ${c.visible ? 'border-emerald-200 text-emerald-700 bg-emerald-50 dark:bg-emerald-950/50 dark:text-emerald-300 dark:border-emerald-900' : 'border-slate-200 text-slate-500 bg-slate-50 dark:bg-slate-900 dark:text-slate-400 dark:border-slate-700'}`}
+                    data-testid={`column-toggle-${c.key}`}
+                    aria-pressed={c.visible}
+                  >
+                    {c.visible ? <><Eye className="w-3 h-3" /> Shown</> : <><EyeOff className="w-3 h-3" /> Hidden</>}
+                  </button>
+                </li>
+              );
+            })}
+          </ul>
+          <DialogFooter className="gap-2 sm:gap-2">
+            <Button variant="outline" onClick={resetColumns} data-testid="column-reset-btn">Reset default</Button>
+            <Button onClick={() => setChooserOpen(false)} className="bg-[#4F46E5] hover:bg-[#4338CA]" data-testid="column-done-btn">Done</Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </div>
