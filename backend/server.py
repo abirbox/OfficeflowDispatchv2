@@ -173,8 +173,8 @@ api_router.include_router(presence_router)
 
 @api_router.get("/files/{path:path}")
 async def serve_file(path: str):
-    """Public passthrough for objects stored in Emergent object storage so that
-    <img src> works from the browser."""
+    """Public passthrough for objects stored in local filesystem storage so
+    that <img src> works from the browser."""
     try:
         content, ctype = get_object(path)
     except Exception:
