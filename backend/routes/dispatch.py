@@ -914,10 +914,10 @@ async def dashboard_stats(request: Request, db=Depends(get_db)):
         "no_response": await db.dispatch_schedules.count_documents({**base, "confirmation_status": "No Response"}),
         "declined": await db.dispatch_schedules.count_documents({**base, "confirmation_status": "Declined"}),
         "not_confirmed": await db.dispatch_schedules.count_documents({**base, "confirmation_status": "Not Confirmed"}),
-        "late": await db.dispatch_schedules.count_documents({**base, "shift_status": "Late Clock In"}),
+        "late": await db.dispatch_schedules.count_documents({**base, "shift_status": "Late Clocked In"}),
         "absent": await db.dispatch_schedules.count_documents({**base, "shift_status": "Absent"}),
-        "checked_in": await db.dispatch_schedules.count_documents({**base, "shift_status": {"$in": ["Check-in", "Late Clock In"]}}),
-        "checked_out": await db.dispatch_schedules.count_documents({**base, "shift_status": {"$in": ["Checkout", "Late Clock Out", "Early Clock Out", "Completed"]}}),
+        "checked_in": await db.dispatch_schedules.count_documents({**base, "shift_status": {"$in": ["Clocked In", "Late Clocked In"]}}),
+        "checked_out": await db.dispatch_schedules.count_documents({**base, "shift_status": {"$in": ["Clocked Out", "Late Clocked Out", "Early Clocked Out", "Complete"]}}),
         "clients": await db.dispatch_clients.count_documents({"status": "active"}),
         "vendors": await db.dispatch_vendors.count_documents({"status": "active"}),
         "officers": await db.dispatch_officers.count_documents({"status": "active"}),
@@ -1044,10 +1044,10 @@ async def _aggregate_by(db, group_field: str, date_from: str, date_to: str, incl
         {"$group": {
             "_id": f"${group_field}",
             "total_shifts": {"$sum": 1},
-            "completed": {"$sum": {"$cond": [{"$eq": ["$shift_status", "Completed"]}, 1, 0]}},
+            "completed": {"$sum": {"$cond": [{"$eq": ["$shift_status", "Complete"]}, 1, 0]}},
             "absent": {"$sum": {"$cond": [{"$eq": ["$shift_status", "Absent"]}, 1, 0]}},
-            "late": {"$sum": {"$cond": [{"$eq": ["$shift_status", "Late Clock In"]}, 1, 0]}},
-            "early_checkout": {"$sum": {"$cond": [{"$eq": ["$shift_status", "Early Clock Out"]}, 1, 0]}},
+            "late": {"$sum": {"$cond": [{"$eq": ["$shift_status", "Late Clocked In"]}, 1, 0]}},
+            "early_checkout": {"$sum": {"$cond": [{"$eq": ["$shift_status", "Early Clocked Out"]}, 1, 0]}},
             "cancelled": {"$sum": {"$cond": [{"$eq": ["$shift_status", "Cancelled"]}, 1, 0]}},
             "confirmed": {"$sum": {"$cond": [{"$eq": ["$confirmation_status", "Confirmed"]}, 1, 0]}},
             "total_hours": {"$sum": {"$ifNull": ["$duty_hours", 0]}},
@@ -1227,10 +1227,10 @@ async def report_entity_detail(
         items.append(row)
         total_hours += h
         s = d.get("shift_status")
-        if s == "Completed": completed += 1
+        if s == "Complete": completed += 1
         elif s == "Absent": absent += 1
-        elif s == "Late Clock In": late += 1
-        elif s == "Early Clock Out": early += 1
+        elif s == "Late Clocked In": late += 1
+        elif s == "Early Clocked Out": early += 1
         elif s == "Cancelled": cancelled += 1
 
     # Entity header

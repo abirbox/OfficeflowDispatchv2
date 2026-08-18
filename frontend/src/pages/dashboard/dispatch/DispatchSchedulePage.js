@@ -16,18 +16,18 @@ import { CONFIRM_BADGE } from './_shared';
 const SHIFT_TYPES = ['Morning', 'Afternoon', 'Evening', 'Night'];
 const CONF_STATUSES = ['Not Confirmed', 'Pending', 'Confirmed', 'Declined', 'No Response'];
 const CONF_METHODS = ['Call', 'Text', 'Call + Text'];
-const SHIFT_STATUSES = ['Not Started', 'Check-in', 'Checkout', 'Late Clock In', 'Early Clock Out', 'Late Clock Out', 'Absent', 'Completed', 'Cancelled'];
-const QUICK_ACTIONS = ['Check-in', 'Checkout', 'Late Clock In', 'Late Clock Out', 'Absent'];
+const SHIFT_STATUSES = ['Not Started', 'Clocked In', 'Clocked Out', 'Late Clocked In', 'Early Clocked Out', 'Late Clocked Out', 'Absent', 'Complete', 'Cancelled'];
+const QUICK_ACTIONS = ['Clocked In', 'Clocked Out', 'Late Clocked In', 'Late Clocked Out', 'Absent'];
 const STATUS_BADGE_MAP = {
-  'Not Started':     'bg-slate-700 text-slate-50 border-slate-800 dark:bg-slate-600 dark:text-slate-50 dark:border-slate-500',
-  'Check-in':        'bg-emerald-700 text-emerald-50 border-emerald-800 dark:bg-emerald-600 dark:text-emerald-50 dark:border-emerald-500',
-  'Checkout':        'bg-sky-700 text-sky-50 border-sky-800 dark:bg-sky-600 dark:text-sky-50 dark:border-sky-500',
-  'Late Clock In':   'bg-amber-700 text-amber-50 border-amber-800 dark:bg-amber-600 dark:text-amber-50 dark:border-amber-500',
-  'Late Clock Out':  'bg-orange-700 text-orange-50 border-orange-800 dark:bg-orange-600 dark:text-orange-50 dark:border-orange-500',
-  'Early Clock Out': 'bg-fuchsia-700 text-fuchsia-50 border-fuchsia-800 dark:bg-fuchsia-600 dark:text-fuchsia-50 dark:border-fuchsia-500',
-  'Absent':          'bg-rose-700 text-rose-50 border-rose-800 dark:bg-rose-600 dark:text-rose-50 dark:border-rose-500',
-  'Completed':       'bg-indigo-700 text-indigo-50 border-indigo-800 dark:bg-indigo-600 dark:text-indigo-50 dark:border-indigo-500',
-  'Cancelled':       'bg-zinc-800 text-zinc-100 border-zinc-900 line-through dark:bg-zinc-700 dark:text-zinc-100 dark:border-zinc-600',
+  'Not Started':       'bg-slate-700 text-slate-50 border-slate-800 dark:bg-slate-600 dark:text-slate-50 dark:border-slate-500',
+  'Clocked In':        'bg-emerald-700 text-emerald-50 border-emerald-800 dark:bg-emerald-600 dark:text-emerald-50 dark:border-emerald-500',
+  'Clocked Out':       'bg-sky-700 text-sky-50 border-sky-800 dark:bg-sky-600 dark:text-sky-50 dark:border-sky-500',
+  'Late Clocked In':   'bg-amber-700 text-amber-50 border-amber-800 dark:bg-amber-600 dark:text-amber-50 dark:border-amber-500',
+  'Late Clocked Out':  'bg-orange-700 text-orange-50 border-orange-800 dark:bg-orange-600 dark:text-orange-50 dark:border-orange-500',
+  'Early Clocked Out': 'bg-fuchsia-700 text-fuchsia-50 border-fuchsia-800 dark:bg-fuchsia-600 dark:text-fuchsia-50 dark:border-fuchsia-500',
+  'Absent':            'bg-rose-700 text-rose-50 border-rose-800 dark:bg-rose-600 dark:text-rose-50 dark:border-rose-500',
+  'Complete':          'bg-indigo-700 text-indigo-50 border-indigo-800 dark:bg-indigo-600 dark:text-indigo-50 dark:border-indigo-500',
+  'Cancelled':         'bg-zinc-800 text-zinc-100 border-zinc-900 line-through dark:bg-zinc-700 dark:text-zinc-100 dark:border-zinc-600',
 };
 
 // Row background tint by shift type — subtle so status badges stay readable.
@@ -343,8 +343,8 @@ const DispatchSchedulePage = ({ todayOnly = false }) => {
     try {
       const payload = { shift_status: status, remarks: statusRemarks || null };
       const now = new Date().toTimeString().slice(0, 5);
-      if (status === 'Check-in' || status === 'Late Clock In') payload.actual_check_in = now;
-      if (status === 'Checkout' || status === 'Late Clock Out' || status === 'Early Clock Out') payload.actual_check_out = now;
+      if (status === 'Clocked In' || status === 'Late Clocked In') payload.actual_check_in = now;
+      if (status === 'Clocked Out' || status === 'Late Clocked Out' || status === 'Early Clocked Out') payload.actual_check_out = now;
       await api.post(`/dispatch/schedules/${row.id}/status`, payload);
       toast.success(`${status} recorded by ${user?.name}`);
       setStatusDialog(null); setStatusRemarks('');
@@ -502,6 +502,50 @@ const DispatchSchedulePage = ({ todayOnly = false }) => {
           </div>
         )}
       </div>
+
+      {/* Client / Vendor title banner — shown when the schedule is filtered
+          by client or vendor. Displays their logo and name centre-stage above
+          the table so exports/screenshots read like a report cover page. */}
+      {(() => {
+        const activeClient = filters.client_id ? clients.find((c) => c.id === filters.client_id) : null;
+        const activeVendor = filters.vendor_id ? vendors.find((v) => v.id === filters.vendor_id) : null;
+        if (!activeClient && !activeVendor) return null;
+        const Card = ({ label, entity, testid }) => (
+          <div className="flex flex-col items-center gap-2" data-testid={testid}>
+            <div className="text-[10px] uppercase tracking-widest text-[#64748B] font-semibold">{label}</div>
+            <div className="flex items-center gap-4">
+              {entity.logo_path ? (
+                <img
+                  src={entity.logo_path}
+                  alt={entity.name}
+                  className="w-16 h-16 rounded-xl object-contain border border-[#E2E8F0] dark:border-[#27272A] bg-white p-1"
+                  data-testid={`${testid}-logo`}
+                />
+              ) : (
+                <div className="w-16 h-16 rounded-xl border border-dashed border-[#CBD5E1] dark:border-[#3F3F46] flex items-center justify-center text-xs text-[#94A3B8]" data-testid={`${testid}-logo-fallback`}>
+                  No logo
+                </div>
+              )}
+              <div className="text-left">
+                <div className="text-2xl font-bold text-[#0F172A] dark:text-[#FAFAFA] leading-tight" data-testid={`${testid}-name`}>{entity.name}</div>
+                {entity.code && <div className="text-xs text-[#64748B] font-mono mt-0.5">{entity.code}</div>}
+              </div>
+            </div>
+          </div>
+        );
+        return (
+          <div
+            className="bg-white dark:bg-[#18181B] border border-[#E2E8F0] dark:border-[#27272A] rounded-xl p-6 flex items-center justify-center gap-12 flex-wrap"
+            data-testid="filter-title-banner"
+          >
+            {activeClient && <Card label="Client" entity={activeClient} testid="banner-client" />}
+            {activeClient && activeVendor && (
+              <div className="h-16 w-px bg-[#E2E8F0] dark:bg-[#27272A]" aria-hidden />
+            )}
+            {activeVendor && <Card label="Vendor" entity={activeVendor} testid="banner-vendor" />}
+          </div>
+        );
+      })()}
 
       {/* Table */}
       <div className="bg-white dark:bg-[#18181B] border border-[#E2E8F0] dark:border-[#27272A] rounded-xl overflow-x-auto">

@@ -34,6 +34,7 @@ from routes.presence import router as presence_router
 from utils.auth import hash_password, verify_password
 from utils.storage import init_storage, get_object
 from utils.ws import manager
+from models.dispatch import LEGACY_STATUS_MAP
 
 logging.basicConfig(
     level=logging.INFO,
@@ -130,6 +131,26 @@ async def startup():
         logger.info("Database indexes created")
         
         await seed_admin()
+
+        # One-off migration: rename legacy shift-status labels in schedules
+        # and their action history so both old and new records display the
+        # new names ("Clocked In", "Complete", etc.).
+        for old, new in LEGACY_STATUS_MAP.items():
+            r1 = await db.dispatch_schedules.update_many(
+                {"shift_status": old}, {"$set": {"shift_status": new}}
+            )
+            r2 = await db.dispatch_action_history.update_many(
+                {"action": old}, {"$set": {"action": new}}
+            )
+            r3 = await db.dispatch_schedules.update_many(
+                {"last_modified_action": old}, {"$set": {"last_modified_action": new}}
+            )
+            if r1.modified_count or r2.modified_count or r3.modified_count:
+                logger.info(
+                    f"Shift status migration: '{old}' -> '{new}' "
+                    f"(schedules={r1.modified_count}, history={r2.modified_count}, "
+                    f"last_modified_action={r3.modified_count})"
+                )
         
         try:
             init_storage()

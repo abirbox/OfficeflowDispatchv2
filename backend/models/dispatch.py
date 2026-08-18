@@ -125,8 +125,20 @@ class PostSiteUpdate(BaseModel):
 
 # ---------- Dispatch Schedule ----------
 SHIFT_TYPES = ["Morning", "Afternoon", "Evening", "Night"]
-SHIFT_STATUSES = ["Not Started", "Check-in", "Checkout", "Late Clock In",
-                  "Early Clock Out", "Late Clock Out", "Absent", "Completed", "Cancelled"]
+SHIFT_STATUSES = ["Not Started", "Clocked In", "Clocked Out", "Late Clocked In",
+                  "Early Clocked Out", "Late Clocked Out", "Absent", "Complete", "Cancelled"]
+
+# Legacy -> new name map used by the startup migration + backward-compat
+# aggregations. Old values in the DB are rewritten on boot; keep this map
+# as the single source of truth if you need to add more renames later.
+LEGACY_STATUS_MAP = {
+    "Check-in": "Clocked In",
+    "Checkout": "Clocked Out",
+    "Late Clock In": "Late Clocked In",
+    "Late Clock Out": "Late Clocked Out",
+    "Early Clock Out": "Early Clocked Out",
+    "Completed": "Complete",
+}
 CONFIRMATION_STATUSES = ["Not Confirmed", "Pending", "Confirmed", "Declined", "No Response"]
 CONFIRMATION_METHODS = ["Call", "Text", "Call + Text"]
 

@@ -259,8 +259,8 @@ const DispatchReportsPage = () => {
                         <th className="px-2 py-2 text-left">Date</th>
                         <th className="px-2 py-2 text-left">Shift</th>
                         <th className="px-2 py-2 text-left">Scheduled</th>
-                        <th className="px-2 py-2 text-left">Check-in</th>
-                        <th className="px-2 py-2 text-left">Check-out</th>
+                        <th className="px-2 py-2 text-left">Clocked In</th>
+                        <th className="px-2 py-2 text-left">Clocked Out</th>
                         <th className="px-2 py-2 text-left">Hours</th>
                         <th className="px-2 py-2 text-left">Post</th>
                         <th className="px-2 py-2 text-left">Officer</th>
