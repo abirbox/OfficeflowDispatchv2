@@ -370,6 +370,20 @@ const DispatchSchedulePage = ({ todayOnly = false }) => {
           <Button
             variant="outline"
             size="sm"
+            onClick={() => setFiltersOpen(true)}
+            data-testid="open-filters"
+            className="h-9"
+          >
+            <Filter className="w-4 h-4 mr-2" /> Filters
+            {activeChips.length > 0 && (
+              <span className="ml-2 px-2 py-0.5 rounded-full bg-[#4F46E5] text-white text-xs font-medium leading-none">
+                {activeChips.length}
+              </span>
+            )}
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
             onClick={() => setChooserOpen(true)}
             data-testid="open-column-chooser"
             className="h-9"
@@ -394,114 +408,20 @@ const DispatchSchedulePage = ({ todayOnly = false }) => {
         </div>
       </div>
 
-      {/* Filters (collapsible) */}
-      <div className="bg-white dark:bg-[#18181B] border border-[#E2E8F0] dark:border-[#27272A] rounded-xl">
-        <button
-          type="button"
-          onClick={() => setFiltersOpen((o) => !o)}
-          className="w-full flex items-center justify-between p-4 text-sm font-semibold text-[#0F172A] dark:text-[#FAFAFA]"
-          data-testid="toggle-filters"
-        >
-          <span className="flex items-center gap-2">
-            <Filter className="w-4 h-4" /> Filters
-            {activeChips.length > 0 && (
-              <span className="ml-2 px-2 py-0.5 rounded-full bg-[#4F46E5] text-white text-xs font-medium">
-                {activeChips.length}
-              </span>
-            )}
-          </span>
-          {filtersOpen ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
-        </button>
-
-        {activeChips.length > 0 && (
-          <div className="px-4 pb-3 flex items-center gap-2 flex-wrap border-t border-[#E2E8F0] dark:border-[#27272A] pt-3">
-            {activeChips.map(({ k, v }) => (
-              <span key={k} className="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-indigo-50 dark:bg-indigo-950 text-indigo-700 dark:text-indigo-300 text-xs">
-                {k.replace('_', ' ')}: {String(v).slice(0, 16)}
-                <button onClick={() => setF(k, '')}><X className="w-3 h-3" /></button>
-              </span>
-            ))}
-            <Button variant="ghost" size="sm" onClick={() => { setFilters(emptyFilters); setPage(1); }} data-testid="clear-filters" className="text-xs h-7">
-              Clear all
-            </Button>
-          </div>
-        )}
-
-        {filtersOpen && (
-          <div className="p-4 pt-0 space-y-3">
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-              <div><Label className="text-xs">Officer</Label>
-                <Select value={filters.officer_id || 'all'} onValueChange={(v) => setF('officer_id', v === 'all' ? '' : v)}>
-                  <SelectTrigger data-testid="filter-officer"><SelectValue placeholder="All officers" /></SelectTrigger>
-                  <SelectContent><SelectItem value="all">All officers</SelectItem>
-                    {officers.map(o => <SelectItem key={o.id} value={o.id}>{o.name}</SelectItem>)}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div><Label className="text-xs">Vendor</Label>
-                <Select value={filters.vendor_id || 'all'} onValueChange={(v) => setF('vendor_id', v === 'all' ? '' : v)}>
-              <SelectTrigger data-testid="filter-vendor"><SelectValue placeholder="All vendors" /></SelectTrigger>
-              <SelectContent><SelectItem value="all">All vendors</SelectItem>
-                {vendors.map(v => <SelectItem key={v.id} value={v.id}>{v.name}</SelectItem>)}
-              </SelectContent>
-            </Select>
-          </div>
-          <div><Label className="text-xs">Client</Label>
-            <Select value={filters.client_id || 'all'} onValueChange={(v) => setF('client_id', v === 'all' ? '' : v)}>
-              <SelectTrigger data-testid="filter-client"><SelectValue placeholder="All clients" /></SelectTrigger>
-              <SelectContent><SelectItem value="all">All clients</SelectItem>
-                {clients.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
-              </SelectContent>
-            </Select>
-          </div>
-          <div><Label className="text-xs">Post Site</Label>
-            <Select value={filters.post_site_id || 'all'} onValueChange={(v) => setF('post_site_id', v === 'all' ? '' : v)}>
-              <SelectTrigger data-testid="filter-post-site"><SelectValue placeholder="All post sites" /></SelectTrigger>
-              <SelectContent><SelectItem value="all">All post sites</SelectItem>
-                {postSites.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
-              </SelectContent>
-            </Select>
-          </div>
-          <div><Label className="text-xs">Post Pin</Label>
-            <Input value={filters.post_pin} onChange={(e) => setF('post_pin', e.target.value)} placeholder="PS-102" data-testid="filter-pin" />
-          </div>
-          <div><Label className="text-xs">Date From</Label>
-            <Input type="date" value={filters.date_from} onChange={(e) => setF('date_from', e.target.value)} data-testid="filter-from" />
-          </div>
-          <div><Label className="text-xs">Date To</Label>
-            <Input type="date" value={filters.date_to} onChange={(e) => setF('date_to', e.target.value)} data-testid="filter-to" />
-          </div>
-          <div><Label className="text-xs">Shift</Label>
-            <Select value={filters.shift_type || 'all'} onValueChange={(v) => setF('shift_type', v === 'all' ? '' : v)}>
-              <SelectTrigger data-testid="filter-shift"><SelectValue placeholder="All shifts" /></SelectTrigger>
-              <SelectContent><SelectItem value="all">All shifts</SelectItem>
-                {SHIFT_TYPES.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}
-              </SelectContent>
-            </Select>
-          </div>
-          <div><Label className="text-xs">Confirmation</Label>
-            <Select value={filters.confirmation_status || 'all'} onValueChange={(v) => setF('confirmation_status', v === 'all' ? '' : v)}>
-              <SelectTrigger data-testid="filter-conf"><SelectValue placeholder="All" /></SelectTrigger>
-              <SelectContent><SelectItem value="all">All</SelectItem>
-                {CONF_STATUSES.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}
-              </SelectContent>
-            </Select>
-          </div>
-          <div><Label className="text-xs">Shift Status</Label>
-            <Select value={filters.shift_status || 'all'} onValueChange={(v) => setF('shift_status', v === 'all' ? '' : v)}>
-              <SelectTrigger data-testid="filter-status"><SelectValue placeholder="All" /></SelectTrigger>
-              <SelectContent><SelectItem value="all">All</SelectItem>
-                {SHIFT_STATUSES.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}
-              </SelectContent>
-            </Select>
-          </div>
-              <div><Label className="text-xs">Work Order</Label>
-                <Input value={filters.work_order} onChange={(e) => setF('work_order', e.target.value)} placeholder="WO-123" data-testid="filter-work-order" />
-              </div>
-            </div>
-          </div>
-        )}
-      </div>
+      {/* Active-filter chips bar (only shown when at least one filter is set) */}
+      {activeChips.length > 0 && (
+        <div className="flex items-center gap-2 flex-wrap" data-testid="active-filters-chips">
+          {activeChips.map(({ k, v }) => (
+            <span key={k} className="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-indigo-50 dark:bg-indigo-950 text-indigo-700 dark:text-indigo-300 text-xs">
+              {k.replace('_', ' ')}: {String(v).slice(0, 16)}
+              <button onClick={() => setF(k, '')} data-testid={`chip-clear-${k}`}><X className="w-3 h-3" /></button>
+            </span>
+          ))}
+          <Button variant="ghost" size="sm" onClick={() => { setFilters(emptyFilters); setPage(1); }} data-testid="clear-filters" className="text-xs h-7">
+            Clear all
+          </Button>
+        </div>
+      )}
 
       {/* Client / Vendor title banner — shown when the schedule is filtered
           by client or vendor. Logo on top, name below, no surrounding box. */}
@@ -905,6 +825,103 @@ const DispatchSchedulePage = ({ todayOnly = false }) => {
                 </div>
               ))}
           </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Filters dialog — opens like the Columns chooser */}
+      <Dialog open={filtersOpen} onOpenChange={setFiltersOpen}>
+        <DialogContent className="max-w-3xl max-h-[85vh] overflow-y-auto" data-testid="filters-dialog">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2"><Filter className="w-4 h-4" /> Filters</DialogTitle>
+            <DialogDescription>Refine which schedule rows appear in the table.</DialogDescription>
+          </DialogHeader>
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
+            <div><Label className="text-xs">Officer</Label>
+              <Select value={filters.officer_id || 'all'} onValueChange={(v) => setF('officer_id', v === 'all' ? '' : v)}>
+                <SelectTrigger data-testid="filter-officer"><SelectValue placeholder="All officers" /></SelectTrigger>
+                <SelectContent><SelectItem value="all">All officers</SelectItem>
+                  {officers.map(o => <SelectItem key={o.id} value={o.id}>{o.name}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
+            <div><Label className="text-xs">Vendor</Label>
+              <Select value={filters.vendor_id || 'all'} onValueChange={(v) => setF('vendor_id', v === 'all' ? '' : v)}>
+                <SelectTrigger data-testid="filter-vendor"><SelectValue placeholder="All vendors" /></SelectTrigger>
+                <SelectContent><SelectItem value="all">All vendors</SelectItem>
+                  {vendors.map(v => <SelectItem key={v.id} value={v.id}>{v.name}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
+            <div><Label className="text-xs">Client</Label>
+              <Select value={filters.client_id || 'all'} onValueChange={(v) => setF('client_id', v === 'all' ? '' : v)}>
+                <SelectTrigger data-testid="filter-client"><SelectValue placeholder="All clients" /></SelectTrigger>
+                <SelectContent><SelectItem value="all">All clients</SelectItem>
+                  {clients.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
+            <div><Label className="text-xs">Post Site</Label>
+              <Select value={filters.post_site_id || 'all'} onValueChange={(v) => setF('post_site_id', v === 'all' ? '' : v)}>
+                <SelectTrigger data-testid="filter-post-site"><SelectValue placeholder="All post sites" /></SelectTrigger>
+                <SelectContent><SelectItem value="all">All post sites</SelectItem>
+                  {postSites.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
+            <div><Label className="text-xs">Post Pin</Label>
+              <Input value={filters.post_pin} onChange={(e) => setF('post_pin', e.target.value)} placeholder="PS-102" data-testid="filter-pin" />
+            </div>
+            <div><Label className="text-xs">Date From</Label>
+              <Input type="date" value={filters.date_from} onChange={(e) => setF('date_from', e.target.value)} data-testid="filter-from" />
+            </div>
+            <div><Label className="text-xs">Date To</Label>
+              <Input type="date" value={filters.date_to} onChange={(e) => setF('date_to', e.target.value)} data-testid="filter-to" />
+            </div>
+            <div><Label className="text-xs">Shift</Label>
+              <Select value={filters.shift_type || 'all'} onValueChange={(v) => setF('shift_type', v === 'all' ? '' : v)}>
+                <SelectTrigger data-testid="filter-shift"><SelectValue placeholder="All shifts" /></SelectTrigger>
+                <SelectContent><SelectItem value="all">All shifts</SelectItem>
+                  {SHIFT_TYPES.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
+            <div><Label className="text-xs">Upcoming Shift Status</Label>
+              <Select value={filters.confirmation_status || 'all'} onValueChange={(v) => setF('confirmation_status', v === 'all' ? '' : v)}>
+                <SelectTrigger data-testid="filter-conf"><SelectValue placeholder="All" /></SelectTrigger>
+                <SelectContent><SelectItem value="all">All</SelectItem>
+                  {CONF_STATUSES.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
+            <div><Label className="text-xs">Shift Status</Label>
+              <Select value={filters.shift_status || 'all'} onValueChange={(v) => setF('shift_status', v === 'all' ? '' : v)}>
+                <SelectTrigger data-testid="filter-status"><SelectValue placeholder="All" /></SelectTrigger>
+                <SelectContent><SelectItem value="all">All</SelectItem>
+                  {SHIFT_STATUSES.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
+            <div><Label className="text-xs">Work Order</Label>
+              <Input value={filters.work_order} onChange={(e) => setF('work_order', e.target.value)} placeholder="WO-123" data-testid="filter-work-order" />
+            </div>
+          </div>
+          <DialogFooter className="gap-2 sm:gap-2">
+            <Button
+              variant="outline"
+              onClick={() => { setFilters(emptyFilters); setPage(1); }}
+              disabled={activeChips.length === 0}
+              data-testid="filters-clear-btn"
+            >
+              Clear all
+            </Button>
+            <Button
+              onClick={() => setFiltersOpen(false)}
+              className="bg-[#4F46E5] hover:bg-[#4338CA]"
+              data-testid="filters-done-btn"
+            >
+              Done
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
 
