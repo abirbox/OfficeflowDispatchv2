@@ -126,7 +126,7 @@ class PostSiteUpdate(BaseModel):
 # ---------- Dispatch Schedule ----------
 SHIFT_TYPES = ["Morning", "Afternoon", "Evening", "Night"]
 SHIFT_STATUSES = ["Not Started", "Clocked In", "Clocked Out", "Late Clocked In",
-                  "Early Clocked Out", "Late Clocked Out", "Absent", "Complete", "Cancelled"]
+                  "Early Clocked Out", "Late Clocked Out", "Complete", "Cancelled"]
 
 # Legacy -> new name map used by the startup migration + backward-compat
 # aggregations. Old values in the DB are rewritten on boot; keep this map

@@ -16,8 +16,8 @@ import { CONFIRM_BADGE } from './_shared';
 const SHIFT_TYPES = ['Morning', 'Afternoon', 'Evening', 'Night'];
 const CONF_STATUSES = ['Not Confirmed', 'Pending', 'Confirmed', 'Declined', 'No Response'];
 const CONF_METHODS = ['Call', 'Text', 'Call + Text'];
-const SHIFT_STATUSES = ['Not Started', 'Clocked In', 'Clocked Out', 'Late Clocked In', 'Early Clocked Out', 'Late Clocked Out', 'Absent', 'Complete', 'Cancelled'];
-const QUICK_ACTIONS = ['Clocked In', 'Clocked Out', 'Late Clocked In', 'Late Clocked Out', 'Absent'];
+const SHIFT_STATUSES = ['Not Started', 'Clocked In', 'Clocked Out', 'Late Clocked In', 'Early Clocked Out', 'Late Clocked Out', 'Complete', 'Cancelled'];
+const QUICK_ACTIONS = ['Clocked In', 'Clocked Out', 'Late Clocked In', 'Late Clocked Out'];
 const STATUS_BADGE_MAP = {
   'Not Started':       'bg-slate-700 text-slate-50 border-slate-800 dark:bg-slate-600 dark:text-slate-50 dark:border-slate-500',
   'Clocked In':        'bg-emerald-700 text-emerald-50 border-emerald-800 dark:bg-emerald-600 dark:text-emerald-50 dark:border-emerald-500',
@@ -504,45 +504,37 @@ const DispatchSchedulePage = ({ todayOnly = false }) => {
       </div>
 
       {/* Client / Vendor title banner — shown when the schedule is filtered
-          by client or vendor. Displays their logo and name centre-stage above
-          the table so exports/screenshots read like a report cover page. */}
+          by client or vendor. Logo on top, name below, no surrounding box. */}
       {(() => {
         const activeClient = filters.client_id ? clients.find((c) => c.id === filters.client_id) : null;
         const activeVendor = filters.vendor_id ? vendors.find((v) => v.id === filters.vendor_id) : null;
         if (!activeClient && !activeVendor) return null;
-        const Card = ({ label, entity, testid }) => (
-          <div className="flex flex-col items-center gap-2" data-testid={testid}>
-            <div className="text-[10px] uppercase tracking-widest text-[#64748B] font-semibold">{label}</div>
-            <div className="flex items-center gap-4">
-              {entity.logo_path ? (
-                <img
-                  src={entity.logo_path}
-                  alt={entity.name}
-                  className="w-16 h-16 rounded-xl object-contain border border-[#E2E8F0] dark:border-[#27272A] bg-white p-1"
-                  data-testid={`${testid}-logo`}
-                />
-              ) : (
-                <div className="w-16 h-16 rounded-xl border border-dashed border-[#CBD5E1] dark:border-[#3F3F46] flex items-center justify-center text-xs text-[#94A3B8]" data-testid={`${testid}-logo-fallback`}>
-                  No logo
-                </div>
-              )}
-              <div className="text-left">
-                <div className="text-2xl font-bold text-[#0F172A] dark:text-[#FAFAFA] leading-tight" data-testid={`${testid}-name`}>{entity.name}</div>
-                {entity.code && <div className="text-xs text-[#64748B] font-mono mt-0.5">{entity.code}</div>}
+        const Card = ({ entity, testid }) => (
+          <div className="flex flex-col items-center gap-3" data-testid={testid}>
+            {entity.logo_path ? (
+              <img
+                src={entity.logo_path}
+                alt={entity.name}
+                className="w-24 h-24 object-contain"
+                data-testid={`${testid}-logo`}
+              />
+            ) : (
+              <div className="w-24 h-24 flex items-center justify-center text-xs text-[#94A3B8]" data-testid={`${testid}-logo-fallback`}>
+                No logo
               </div>
+            )}
+            <div className="text-2xl font-bold text-[#0F172A] dark:text-[#FAFAFA] leading-tight text-center" data-testid={`${testid}-name`}>
+              {entity.name}
             </div>
           </div>
         );
         return (
           <div
-            className="bg-white dark:bg-[#18181B] border border-[#E2E8F0] dark:border-[#27272A] rounded-xl p-6 flex items-center justify-center gap-12 flex-wrap"
+            className="flex items-start justify-center gap-16 flex-wrap py-2"
             data-testid="filter-title-banner"
           >
-            {activeClient && <Card label="Client" entity={activeClient} testid="banner-client" />}
-            {activeClient && activeVendor && (
-              <div className="h-16 w-px bg-[#E2E8F0] dark:bg-[#27272A]" aria-hidden />
-            )}
-            {activeVendor && <Card label="Vendor" entity={activeVendor} testid="banner-vendor" />}
+            {activeClient && <Card entity={activeClient} testid="banner-client" />}
+            {activeVendor && <Card entity={activeVendor} testid="banner-vendor" />}
           </div>
         );
       })()}
