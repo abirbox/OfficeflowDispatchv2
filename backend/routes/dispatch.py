@@ -589,7 +589,7 @@ async def list_schedules(request: Request, db=Depends(get_db),
         k = _cache_key(coll, _id)
         if k in cache: return cache[k]
         try:
-            d = await db[coll].find_one({"_id": _oid(_id)}, {field: 1, "post_pin": 1})
+            d = await db[coll].find_one({"_id": _oid(_id)}, {field: 1, "post_pin": 1, "city": 1})
         except Exception:
             d = None
         cache[k] = d
@@ -607,6 +607,7 @@ async def list_schedules(request: Request, db=Depends(get_db),
         row["officer_name"] = off.get("name") if off else None
         row["post_site_name"] = pst.get("name") if pst else None
         row["post_pin"] = pst.get("post_pin") if pst else None
+        row["city"] = pst.get("city") if pst else None
         out.append(row)
 
     return {"items": out, "total": total, "page": page, "limit": limit}

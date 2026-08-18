@@ -35,6 +35,19 @@ const emptyFilters = {
   date_from: '', date_to: '', shift_type: '', confirmation_status: '', shift_status: '',
 };
 
+// Format "2026-07-25" -> "Sat, 25 Jul 2026". Parses YYYY-MM-DD as a local date
+// (avoids UTC-shifted day names from `new Date('2026-07-25')`).
+const formatScheduleDate = (iso) => {
+  if (!iso) return '—';
+  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(String(iso));
+  const d = m ? new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3])) : new Date(iso);
+  if (isNaN(d.getTime())) return iso;
+  const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+  const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+  const dd = String(d.getDate()).padStart(2, '0');
+  return `${days[d.getDay()]}, ${dd} ${months[d.getMonth()]} ${d.getFullYear()}`;
+};
+
 const DispatchSchedulePage = ({ todayOnly = false }) => {
   const { user } = useAuthStore();
   const canCreate = hasPermission(user, 'dispatch.schedule.create');
@@ -332,18 +345,28 @@ const DispatchSchedulePage = ({ todayOnly = false }) => {
 
       {/* Table */}
       <div className="bg-white dark:bg-[#18181B] border border-[#E2E8F0] dark:border-[#27272A] rounded-xl overflow-x-auto">
-        <table className="w-full min-w-[1400px] text-sm table-auto">
+        <table className="w-full min-w-[1800px] text-sm table-auto">
           <thead className="bg-[#F8FAFC] dark:bg-[#0F0F11] text-left text-xs uppercase tracking-wider text-[#64748B]">
             <tr>
-              <th className="px-3 py-3">Date</th><th className="px-3 py-3">Officer</th>
-              <th className="px-3 py-3">Post Pin</th><th className="px-3 py-3">Post Site</th>
-              <th className="px-3 py-3">Client</th><th className="px-3 py-3">Vendor</th>
-              <th className="px-3 py-3">Shift</th><th className="px-3 py-3">Time</th>
-              <th className="px-3 py-3">Hours</th>
-              {canFinancial && <><th className="px-3 py-3">Duty Rate</th><th className="px-3 py-3">Billing</th></>}
-              <th className="px-3 py-3">Confirmation</th>
-              <th className="px-3 py-3">Status</th>
-              <th className="px-3 py-3">Last Modified By</th>
+              <th className="px-3 py-3">Date</th>
+              <th className="px-3 py-3">Shift</th>
+              <th className="px-3 py-3">Start Time</th>
+              <th className="px-3 py-3">End Time</th>
+              <th className="px-3 py-3">Duty Hours</th>
+              {canFinancial && <>
+                <th className="px-3 py-3">Duty Rate ($)</th>
+                <th className="px-3 py-3">Billing Rate ($)</th>
+              </>}
+              <th className="px-3 py-3">Site</th>
+              <th className="px-3 py-3">City</th>
+              <th className="px-3 py-3">Post Site Pin</th>
+              <th className="px-3 py-3">Security Officer</th>
+              <th className="px-3 py-3">Shift Status</th>
+              <th className="px-3 py-3">Upcoming Shift Status</th>
+              <th className="px-3 py-3">Confirmed By</th>
+              <th className="px-3 py-3">Remarks</th>
+              <th className="px-3 py-3">Client</th>
+              <th className="px-3 py-3">Vendor</th>
               <th className="px-3 py-3 text-right">Manage</th>
             </tr>
           </thead>
@@ -352,40 +375,19 @@ const DispatchSchedulePage = ({ todayOnly = false }) => {
             : rows.length === 0 ? <tr><td colSpan={20} className="px-4 py-8 text-center text-[#64748B]">No dispatch schedules found</td></tr>
             : rows.map(r => (
               <tr key={r.id} data-testid={`sched-${r.id}`}>
-                <td className="px-3 py-2 text-[#334155] dark:text-[#E4E4E7]">{r.date}</td>
-                <td className="px-3 py-2">{r.officer_name || '—'}</td>
-                <td className="px-3 py-2 font-mono text-xs">{r.post_pin || '—'}</td>
+                <td className="px-3 py-2 whitespace-nowrap text-[#334155] dark:text-[#E4E4E7]" data-testid={`sched-date-${r.id}`}>{formatScheduleDate(r.date)}</td>
+                <td className="px-3 py-2">{r.shift_type || '—'}</td>
+                <td className="px-3 py-2 whitespace-nowrap">{r.start_time || '—'}</td>
+                <td className="px-3 py-2 whitespace-nowrap">{r.end_time || '—'}</td>
+                <td className="px-3 py-2">{r.duty_hours != null ? `${r.duty_hours}h` : '—'}</td>
+                {canFinancial && <>
+                  <td className="px-3 py-2">{r.duty_rate ?? '—'}</td>
+                  <td className="px-3 py-2">{r.billing_rate ?? '—'}</td>
+                </>}
                 <td className="px-3 py-2">{r.post_site_name || '—'}</td>
-                <td className="px-3 py-2">{r.client_name || '—'}</td>
-                <td className="px-3 py-2">{r.vendor_name || '—'}</td>
-                <td className="px-3 py-2">{r.shift_type}</td>
-                <td className="px-3 py-2">{r.start_time}–{r.end_time}</td>
-                <td className="px-3 py-2">{r.duty_hours}h</td>
-                {canFinancial && <><td className="px-3 py-2">{r.duty_rate ?? '—'}</td><td className="px-3 py-2">{r.billing_rate ?? '—'}</td></>}
-                <td className="px-3 py-2">
-                  {canConfirm && r.shift_status !== 'Cancelled' ? (
-                    <Select
-                      value={r.confirmation_status}
-                      onValueChange={(v) => openConfirm(r, v)}
-                    >
-                      <SelectTrigger
-                        className={`h-8 w-[140px] text-xs font-medium border ${CONFIRM_BADGE[r.confirmation_status] || 'bg-slate-100 text-slate-600'}`}
-                        data-testid={`confirmation-select-${r.id}`}
-                      >
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {CONF_STATUSES.map((s) => (
-                          <SelectItem key={s} value={s} data-testid={`confirmation-option-${s.replace(/\s+/g, '-').toLowerCase()}-${r.id}`}>
-                            {s}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  ) : (
-                    <span className={`px-2 py-1 rounded-full text-xs font-medium ${CONFIRM_BADGE[r.confirmation_status] || 'bg-slate-100 text-slate-600'}`}>{r.confirmation_status}</span>
-                  )}
-                </td>
+                <td className="px-3 py-2">{r.city || '—'}</td>
+                <td className="px-3 py-2 font-mono text-xs">{r.post_pin || '—'}</td>
+                <td className="px-3 py-2">{r.officer_name || '—'}</td>
                 <td className="px-3 py-2">
                   {canEdit && r.shift_status !== 'Cancelled' ? (
                     <Select
@@ -411,6 +413,30 @@ const DispatchSchedulePage = ({ todayOnly = false }) => {
                     <span className={`px-2 py-1 rounded-full text-xs font-medium ${STATUS_BADGE_MAP[r.shift_status] || 'bg-slate-100 text-slate-600'}`}>{r.shift_status}</span>
                   )}
                 </td>
+                <td className="px-3 py-2">
+                  {canConfirm && r.shift_status !== 'Cancelled' ? (
+                    <Select
+                      value={r.confirmation_status}
+                      onValueChange={(v) => openConfirm(r, v)}
+                    >
+                      <SelectTrigger
+                        className={`h-8 w-[160px] text-xs font-medium border ${CONFIRM_BADGE[r.confirmation_status] || 'bg-slate-100 text-slate-600'}`}
+                        data-testid={`confirmation-select-${r.id}`}
+                      >
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {CONF_STATUSES.map((s) => (
+                          <SelectItem key={s} value={s} data-testid={`confirmation-option-${s.replace(/\s+/g, '-').toLowerCase()}-${r.id}`}>
+                            {s}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  ) : (
+                    <span className={`px-2 py-1 rounded-full text-xs font-medium ${CONFIRM_BADGE[r.confirmation_status] || 'bg-slate-100 text-slate-600'}`}>{r.confirmation_status}</span>
+                  )}
+                </td>
                 <td className="px-3 py-2 text-xs">
                   {r.last_modified_by_name ? (
                     <button
@@ -427,6 +453,13 @@ const DispatchSchedulePage = ({ todayOnly = false }) => {
                     </button>
                   ) : <span className="text-[#64748B]">—</span>}
                 </td>
+                <td className="px-3 py-2 max-w-[220px]">
+                  <span className="line-clamp-2 text-[#334155] dark:text-[#E4E4E7]" title={r.remarks || ''} data-testid={`sched-remarks-${r.id}`}>
+                    {r.remarks || '—'}
+                  </span>
+                </td>
+                <td className="px-3 py-2">{r.client_name || '—'}</td>
+                <td className="px-3 py-2">{r.vendor_name || '—'}</td>
                 <td className="px-3 py-2 text-right whitespace-nowrap">
                   {(canEdit || canCancel || canDelete) ? (
                     <DropdownMenu>
