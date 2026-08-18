@@ -408,21 +408,6 @@ const DispatchSchedulePage = ({ todayOnly = false }) => {
         </div>
       </div>
 
-      {/* Active-filter chips bar (only shown when at least one filter is set) */}
-      {activeChips.length > 0 && (
-        <div className="flex items-center gap-2 flex-wrap" data-testid="active-filters-chips">
-          {activeChips.map(({ k, v }) => (
-            <span key={k} className="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-indigo-50 dark:bg-indigo-950 text-indigo-700 dark:text-indigo-300 text-xs">
-              {k.replace('_', ' ')}: {String(v).slice(0, 16)}
-              <button onClick={() => setF(k, '')} data-testid={`chip-clear-${k}`}><X className="w-3 h-3" /></button>
-            </span>
-          ))}
-          <Button variant="ghost" size="sm" onClick={() => { setFilters(emptyFilters); setPage(1); }} data-testid="clear-filters" className="text-xs h-7">
-            Clear all
-          </Button>
-        </div>
-      )}
-
       {/* Client / Vendor title banner — shown when the schedule is filtered
           by client or vendor. Logo on top, name below, no surrounding box. */}
       {(() => {
@@ -835,6 +820,17 @@ const DispatchSchedulePage = ({ todayOnly = false }) => {
             <DialogTitle className="flex items-center gap-2"><Filter className="w-4 h-4" /> Filters</DialogTitle>
             <DialogDescription>Refine which schedule rows appear in the table.</DialogDescription>
           </DialogHeader>
+          {activeChips.length > 0 && (
+            <div className="flex items-center gap-2 flex-wrap pb-3 border-b border-[#E2E8F0] dark:border-[#27272A]" data-testid="active-filters-chips">
+              <span className="text-xs font-semibold text-[#64748B]">Applied:</span>
+              {activeChips.map(({ k, v }) => (
+                <span key={k} className="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-indigo-50 dark:bg-indigo-950 text-indigo-700 dark:text-indigo-300 text-xs">
+                  {k.replace('_', ' ')}: {String(v).slice(0, 16)}
+                  <button onClick={() => setF(k, '')} data-testid={`chip-clear-${k}`} aria-label={`Clear ${k}`}><X className="w-3 h-3" /></button>
+                </span>
+              ))}
+            </div>
+          )}
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
             <div><Label className="text-xs">Officer</Label>
               <Select value={filters.officer_id || 'all'} onValueChange={(v) => setF('officer_id', v === 'all' ? '' : v)}>
