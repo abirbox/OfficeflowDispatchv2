@@ -19,15 +19,15 @@ const CONF_METHODS = ['Call', 'Text', 'Call + Text'];
 const SHIFT_STATUSES = ['Not Started', 'Check-in', 'Checkout', 'Late Clock In', 'Early Clock Out', 'Late Clock Out', 'Absent', 'Completed', 'Cancelled'];
 const QUICK_ACTIONS = ['Check-in', 'Checkout', 'Late Clock In', 'Late Clock Out', 'Absent'];
 const STATUS_BADGE_MAP = {
-  'Not Started':     'bg-slate-100 text-slate-700 border-slate-300 dark:bg-slate-800 dark:text-slate-200 dark:border-slate-600',
-  'Check-in':        'bg-emerald-100 text-emerald-800 border-emerald-300 dark:bg-emerald-950/60 dark:text-emerald-300 dark:border-emerald-800',
-  'Checkout':        'bg-sky-100 text-sky-800 border-sky-300 dark:bg-sky-950/60 dark:text-sky-300 dark:border-sky-800',
-  'Late Clock In':   'bg-amber-100 text-amber-800 border-amber-300 dark:bg-amber-950/60 dark:text-amber-300 dark:border-amber-800',
-  'Late Clock Out':  'bg-orange-100 text-orange-800 border-orange-300 dark:bg-orange-950/60 dark:text-orange-300 dark:border-orange-800',
-  'Early Clock Out': 'bg-fuchsia-100 text-fuchsia-800 border-fuchsia-300 dark:bg-fuchsia-950/60 dark:text-fuchsia-300 dark:border-fuchsia-800',
-  'Absent':          'bg-rose-100 text-rose-800 border-rose-300 dark:bg-rose-950/60 dark:text-rose-300 dark:border-rose-800',
-  'Completed':       'bg-indigo-100 text-indigo-800 border-indigo-300 dark:bg-indigo-950/60 dark:text-indigo-300 dark:border-indigo-800',
-  'Cancelled':       'bg-zinc-200 text-zinc-600 border-zinc-300 line-through dark:bg-zinc-800 dark:text-zinc-400 dark:border-zinc-600',
+  'Not Started':     'bg-slate-700 text-slate-50 border-slate-800 dark:bg-slate-600 dark:text-slate-50 dark:border-slate-500',
+  'Check-in':        'bg-emerald-700 text-emerald-50 border-emerald-800 dark:bg-emerald-600 dark:text-emerald-50 dark:border-emerald-500',
+  'Checkout':        'bg-sky-700 text-sky-50 border-sky-800 dark:bg-sky-600 dark:text-sky-50 dark:border-sky-500',
+  'Late Clock In':   'bg-amber-700 text-amber-50 border-amber-800 dark:bg-amber-600 dark:text-amber-50 dark:border-amber-500',
+  'Late Clock Out':  'bg-orange-700 text-orange-50 border-orange-800 dark:bg-orange-600 dark:text-orange-50 dark:border-orange-500',
+  'Early Clock Out': 'bg-fuchsia-700 text-fuchsia-50 border-fuchsia-800 dark:bg-fuchsia-600 dark:text-fuchsia-50 dark:border-fuchsia-500',
+  'Absent':          'bg-rose-700 text-rose-50 border-rose-800 dark:bg-rose-600 dark:text-rose-50 dark:border-rose-500',
+  'Completed':       'bg-indigo-700 text-indigo-50 border-indigo-800 dark:bg-indigo-600 dark:text-indigo-50 dark:border-indigo-500',
+  'Cancelled':       'bg-zinc-800 text-zinc-100 border-zinc-900 line-through dark:bg-zinc-700 dark:text-zinc-100 dark:border-zinc-600',
 };
 
 // Row background tint by shift type — subtle so status badges stay readable.
@@ -198,11 +198,27 @@ const DispatchSchedulePage = ({ todayOnly = false }) => {
   // keeps them visible while horizontal-scrolling wide tables. The row
   // background follows the shift tint, so sticky cells must match that
   // tint at render time (see cell rendering below).
-  const stickyFirstTh = 'sticky left-0 z-20 bg-[#F8FAFC] dark:bg-[#0F0F11]';
-  const stickyLastTh = 'sticky right-0 z-20 bg-[#F8FAFC] dark:bg-[#0F0F11]';
+  const stickyFirstTh = 'sticky left-0 z-20 bg-[#fbc9ff]';
+  const stickyLastTh = 'sticky right-0 z-20 bg-[#fbc9ff]';
   // Excel-like grid: right + bottom border on each cell; container's outer
   // border closes the left and top edges.
   const cellBorder = 'border-r border-b border-[#E2E8F0] dark:border-[#27272A]';
+
+  // Per-column background overrides. Some columns are highlighted regardless
+  // of the row's shift tint (Date is the anchor column, Security Officer is
+  // called out separately). Returns null when no override applies.
+  const columnCellBg = (key) => {
+    if (key === 'date') return 'bg-[#fbc9ff]';
+    if (key === 'officer') return 'bg-[#E0E7FF] dark:bg-[#3730A3]/60';
+    return null;
+  };
+  // Per-column text colour accents (city green, post pin red).
+  const columnCellText = (key) => {
+    if (key === 'city') return 'text-emerald-600 dark:text-emerald-400 font-semibold';
+    if (key === 'post_pin') return 'text-rose-600 dark:text-rose-400 font-semibold';
+    if (key === 'date') return 'text-black font-semibold';
+    return '';
+  };
 
   const load = useCallback(async (silent = false) => {
     if (!silent) setLoading(true);
@@ -486,18 +502,18 @@ const DispatchSchedulePage = ({ todayOnly = false }) => {
       {/* Table */}
       <div className="bg-white dark:bg-[#18181B] border border-[#E2E8F0] dark:border-[#27272A] rounded-xl overflow-x-auto">
         <table className="w-full text-sm table-auto border-separate border-spacing-0">
-          <thead className="bg-[#F8FAFC] dark:bg-[#0F0F11] text-left text-xs uppercase tracking-wider text-[#64748B]">
+          <thead className="bg-[#fbc9ff] text-left text-xs uppercase tracking-wider text-black font-bold">
             <tr className="whitespace-nowrap">
               {visibleCols.map((c, i) => (
                 <th
                   key={c.key}
-                  className={`px-3 py-3 ${cellBorder} ${i === 0 ? stickyFirstTh : ''}`}
+                  className={`px-3 py-3 font-bold text-black ${cellBorder} ${i === 0 ? stickyFirstTh : ''}`}
                   data-testid={`col-header-${c.key}`}
                 >
                   {c.label}
                 </th>
               ))}
-              <th className={`px-3 py-3 text-right ${cellBorder} ${stickyLastTh}`}>Manage</th>
+              <th className={`px-3 py-3 text-right font-bold text-black ${cellBorder} ${stickyLastTh}`}>Manage</th>
             </tr>
           </thead>
           <tbody>
@@ -507,7 +523,6 @@ const DispatchSchedulePage = ({ todayOnly = false }) => {
               const rowBgClass = SHIFT_ROW_BG[r.shift_type] || DEFAULT_ROW_BG;
               // Sticky cells must repaint the row-bg colour or the columns
               // beneath them would bleed through while scrolling.
-              const stickyFirstTd = `sticky left-0 z-10 ${rowBgClass}`;
               const stickyLastTd = `sticky right-0 z-10 ${rowBgClass}`;
               const cellFor = (key) => {
                 switch (key) {
@@ -593,15 +608,25 @@ const DispatchSchedulePage = ({ todayOnly = false }) => {
                   data-shift={r.shift_type || ''}
                   className={rowBgClass}
                 >
-                  {visibleCols.map((c, i) => (
-                    <td
-                      key={c.key}
-                      className={`px-3 py-2 ${cellBorder} ${i === 0 ? stickyFirstTd : ''}`}
-                      data-testid={`cell-${c.key}-${r.id}`}
-                    >
-                      {cellFor(c.key)}
-                    </td>
-                  ))}
+                  {visibleCols.map((c, i) => {
+                    const bgOverride = columnCellBg(c.key);
+                    const textOverride = columnCellText(c.key);
+                    // Sticky first cell must always have an explicit bg
+                    // (either the column override or the row tint) so it
+                    // doesn't render transparent while scrolling.
+                    const stickyClass = i === 0
+                      ? `sticky left-0 z-10 ${bgOverride || rowBgClass}`
+                      : (bgOverride || '');
+                    return (
+                      <td
+                        key={c.key}
+                        className={`px-3 py-2 ${cellBorder} ${stickyClass} ${textOverride}`}
+                        data-testid={`cell-${c.key}-${r.id}`}
+                      >
+                        {cellFor(c.key)}
+                      </td>
+                    );
+                  })}
                   <td className={`px-3 py-2 text-right whitespace-nowrap ${cellBorder} ${stickyLastTd}`}>
                     {(canEdit || canCancel || canDelete) ? (
                       <DropdownMenu>
