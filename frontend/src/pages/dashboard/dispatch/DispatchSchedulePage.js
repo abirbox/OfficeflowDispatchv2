@@ -212,6 +212,13 @@ const DispatchSchedulePage = ({ todayOnly = false }) => {
     if (key === 'officer') return 'bg-[#E0E7FF] dark:bg-[#3730A3]/60';
     return null;
   };
+  // Per-column border colour override. Officer cells sit on a light-indigo
+  // fill that clashes with the default #E2E8F0 border, so give them a
+  // stronger indigo border that stays visible on the tint.
+  const columnCellBorder = (key) => {
+    if (key === 'officer') return 'border-indigo-400 dark:border-indigo-500';
+    return null;
+  };
   // Per-column text colour accents (city green, post pin red).
   const columnCellText = (key) => {
     if (key === 'city') return 'text-emerald-600 dark:text-emerald-400 font-semibold';
@@ -507,7 +514,7 @@ const DispatchSchedulePage = ({ todayOnly = false }) => {
               {visibleCols.map((c, i) => (
                 <th
                   key={c.key}
-                  className={`px-3 py-3 font-bold text-black ${cellBorder} ${i === 0 ? stickyFirstTh : ''}`}
+                  className={`px-3 py-3 font-bold text-black ${cellBorder} ${columnCellBorder(c.key) || ''} ${i === 0 ? stickyFirstTh : ''}`}
                   data-testid={`col-header-${c.key}`}
                 >
                   {c.label}
@@ -611,16 +618,19 @@ const DispatchSchedulePage = ({ todayOnly = false }) => {
                   {visibleCols.map((c, i) => {
                     const bgOverride = columnCellBg(c.key);
                     const textOverride = columnCellText(c.key);
+                    const borderOverride = columnCellBorder(c.key);
                     // Sticky first cell must always have an explicit bg
                     // (either the column override or the row tint) so it
                     // doesn't render transparent while scrolling.
                     const stickyClass = i === 0
                       ? `sticky left-0 z-10 ${bgOverride || rowBgClass}`
                       : (bgOverride || '');
+                    // Border override must come AFTER `cellBorder` so its
+                    // colour class wins the cascade over the default.
                     return (
                       <td
                         key={c.key}
-                        className={`px-3 py-2 ${cellBorder} ${stickyClass} ${textOverride}`}
+                        className={`px-3 py-2 ${cellBorder} ${borderOverride || ''} ${stickyClass} ${textOverride}`}
                         data-testid={`cell-${c.key}-${r.id}`}
                       >
                         {cellFor(c.key)}
