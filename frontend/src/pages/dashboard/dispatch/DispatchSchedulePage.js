@@ -19,16 +19,25 @@ const CONF_METHODS = ['Call', 'Text', 'Call + Text'];
 const SHIFT_STATUSES = ['Not Started', 'Check-in', 'Checkout', 'Late Clock In', 'Early Clock Out', 'Late Clock Out', 'Absent', 'Completed', 'Cancelled'];
 const QUICK_ACTIONS = ['Check-in', 'Checkout', 'Late Clock In', 'Late Clock Out', 'Absent'];
 const STATUS_BADGE_MAP = {
-  'Check-in': 'bg-emerald-100 text-emerald-700',
-  'Checkout': 'bg-sky-100 text-sky-700',
-  'Late Clock In': 'bg-amber-100 text-amber-700',
-  'Late Clock Out': 'bg-amber-100 text-amber-800',
-  'Early Clock Out': 'bg-orange-100 text-orange-700',
-  'Absent': 'bg-rose-100 text-rose-700',
-  'Completed': 'bg-emerald-100 text-emerald-800',
-  'Cancelled': 'bg-slate-200 text-slate-600',
-  'Not Started': 'bg-slate-100 text-slate-600',
+  'Not Started':     'bg-slate-100 text-slate-700 border-slate-300 dark:bg-slate-800 dark:text-slate-200 dark:border-slate-600',
+  'Check-in':        'bg-emerald-100 text-emerald-800 border-emerald-300 dark:bg-emerald-950/60 dark:text-emerald-300 dark:border-emerald-800',
+  'Checkout':        'bg-sky-100 text-sky-800 border-sky-300 dark:bg-sky-950/60 dark:text-sky-300 dark:border-sky-800',
+  'Late Clock In':   'bg-amber-100 text-amber-800 border-amber-300 dark:bg-amber-950/60 dark:text-amber-300 dark:border-amber-800',
+  'Late Clock Out':  'bg-orange-100 text-orange-800 border-orange-300 dark:bg-orange-950/60 dark:text-orange-300 dark:border-orange-800',
+  'Early Clock Out': 'bg-fuchsia-100 text-fuchsia-800 border-fuchsia-300 dark:bg-fuchsia-950/60 dark:text-fuchsia-300 dark:border-fuchsia-800',
+  'Absent':          'bg-rose-100 text-rose-800 border-rose-300 dark:bg-rose-950/60 dark:text-rose-300 dark:border-rose-800',
+  'Completed':       'bg-indigo-100 text-indigo-800 border-indigo-300 dark:bg-indigo-950/60 dark:text-indigo-300 dark:border-indigo-800',
+  'Cancelled':       'bg-zinc-200 text-zinc-600 border-zinc-300 line-through dark:bg-zinc-800 dark:text-zinc-400 dark:border-zinc-600',
 };
+
+// Row background tint by shift type — subtle so status badges stay readable.
+const SHIFT_ROW_BG = {
+  Morning:   'bg-amber-50 dark:bg-amber-950/20',
+  Afternoon: 'bg-sky-50 dark:bg-sky-950/20',
+  Evening:   'bg-orange-50 dark:bg-orange-950/25',
+  Night:     'bg-indigo-50 dark:bg-indigo-950/25',
+};
+const DEFAULT_ROW_BG = 'bg-white dark:bg-[#18181B]';
 
 const emptyFilters = {
   officer_id: '', vendor_id: '', client_id: '', post_site_id: '', post_pin: '', work_order: '',
@@ -185,10 +194,15 @@ const DispatchSchedulePage = ({ todayOnly = false }) => {
     toast.success(`Exported ${rows.length} row${rows.length === 1 ? '' : 's'} to CSV`);
   };
 
-  // Sticky styling shared by the first column's <th>/<td>. Left-0 keeps it
-  // visible while horizontal-scrolling wide tables.
+  // Sticky styling shared by the first / last column's <th>/<td>. Left-0
+  // keeps them visible while horizontal-scrolling wide tables. The row
+  // background follows the shift tint, so sticky cells must match that
+  // tint at render time (see cell rendering below).
   const stickyFirstTh = 'sticky left-0 z-20 bg-[#F8FAFC] dark:bg-[#0F0F11]';
-  const stickyFirstTd = 'sticky left-0 z-10 bg-white dark:bg-[#18181B]';
+  const stickyLastTh = 'sticky right-0 z-20 bg-[#F8FAFC] dark:bg-[#0F0F11]';
+  // Excel-like grid: right + bottom border on each cell; container's outer
+  // border closes the left and top edges.
+  const cellBorder = 'border-r border-b border-[#E2E8F0] dark:border-[#27272A]';
 
   const load = useCallback(async (silent = false) => {
     if (!silent) setLoading(true);
@@ -471,29 +485,34 @@ const DispatchSchedulePage = ({ todayOnly = false }) => {
 
       {/* Table */}
       <div className="bg-white dark:bg-[#18181B] border border-[#E2E8F0] dark:border-[#27272A] rounded-xl overflow-x-auto">
-        <table className="w-full text-sm table-auto">
+        <table className="w-full text-sm table-auto border-separate border-spacing-0">
           <thead className="bg-[#F8FAFC] dark:bg-[#0F0F11] text-left text-xs uppercase tracking-wider text-[#64748B]">
             <tr className="whitespace-nowrap">
               {visibleCols.map((c, i) => (
                 <th
                   key={c.key}
-                  className={`px-3 py-3 ${i === 0 ? stickyFirstTh : ''}`}
+                  className={`px-3 py-3 ${cellBorder} ${i === 0 ? stickyFirstTh : ''}`}
                   data-testid={`col-header-${c.key}`}
                 >
                   {c.label}
                 </th>
               ))}
-              <th className="px-3 py-3 text-right sticky right-0 z-20 bg-[#F8FAFC] dark:bg-[#0F0F11]">Manage</th>
+              <th className={`px-3 py-3 text-right ${cellBorder} ${stickyLastTh}`}>Manage</th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-[#E2E8F0] dark:divide-[#27272A]">
+          <tbody>
             {loading ? <tr><td colSpan={visibleCols.length + 1} className="px-4 py-8 text-center text-[#64748B]">Loading…</td></tr>
             : rows.length === 0 ? <tr><td colSpan={visibleCols.length + 1} className="px-4 py-8 text-center text-[#64748B]">No dispatch schedules found</td></tr>
             : rows.map(r => {
+              const rowBgClass = SHIFT_ROW_BG[r.shift_type] || DEFAULT_ROW_BG;
+              // Sticky cells must repaint the row-bg colour or the columns
+              // beneath them would bleed through while scrolling.
+              const stickyFirstTd = `sticky left-0 z-10 ${rowBgClass}`;
+              const stickyLastTd = `sticky right-0 z-10 ${rowBgClass}`;
               const cellFor = (key) => {
                 switch (key) {
                   case 'date':         return <span className="whitespace-nowrap text-[#334155] dark:text-[#E4E4E7]" data-testid={`sched-date-${r.id}`}>{formatScheduleDate(r.date)}</span>;
-                  case 'shift':        return r.shift_type || '—';
+                  case 'shift':        return <span className="font-medium">{r.shift_type || '—'}</span>;
                   case 'start_time':   return <span className="whitespace-nowrap">{r.start_time || '—'}</span>;
                   case 'end_time':     return <span className="whitespace-nowrap">{r.end_time || '—'}</span>;
                   case 'duty_hours':   return r.duty_hours != null ? `${r.duty_hours}h` : '—';
@@ -510,7 +529,7 @@ const DispatchSchedulePage = ({ todayOnly = false }) => {
                         onValueChange={(v) => openStatusDialog(r, v)}
                         disabled={!!statusBusy && statusBusy.startsWith(`${r.id}:`)}
                       >
-                        <SelectTrigger className={`h-8 w-[150px] text-xs font-medium border ${STATUS_BADGE_MAP[r.shift_status] || 'bg-slate-100 text-slate-600'}`} data-testid={`status-select-${r.id}`}>
+                        <SelectTrigger className={`h-8 w-[150px] text-xs font-semibold border ${STATUS_BADGE_MAP[r.shift_status] || 'bg-slate-100 text-slate-600 border-slate-300'}`} data-testid={`status-select-${r.id}`}>
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
@@ -520,12 +539,12 @@ const DispatchSchedulePage = ({ todayOnly = false }) => {
                         </SelectContent>
                       </Select>
                     ) : (
-                      <span className={`px-2 py-1 rounded-full text-xs font-medium ${STATUS_BADGE_MAP[r.shift_status] || 'bg-slate-100 text-slate-600'}`}>{r.shift_status}</span>
+                      <span className={`px-2 py-1 rounded-full text-xs font-semibold border ${STATUS_BADGE_MAP[r.shift_status] || 'bg-slate-100 text-slate-600 border-slate-300'}`}>{r.shift_status}</span>
                     );
                   case 'confirmation':
                     return canConfirm && r.shift_status !== 'Cancelled' ? (
                       <Select value={r.confirmation_status} onValueChange={(v) => openConfirm(r, v)}>
-                        <SelectTrigger className={`h-8 w-[160px] text-xs font-medium border ${CONFIRM_BADGE[r.confirmation_status] || 'bg-slate-100 text-slate-600'}`} data-testid={`confirmation-select-${r.id}`}>
+                        <SelectTrigger className={`h-8 w-[160px] text-xs font-semibold border ${CONFIRM_BADGE[r.confirmation_status] || 'bg-slate-100 text-slate-600 border-slate-300'}`} data-testid={`confirmation-select-${r.id}`}>
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
@@ -535,7 +554,7 @@ const DispatchSchedulePage = ({ todayOnly = false }) => {
                         </SelectContent>
                       </Select>
                     ) : (
-                      <span className={`px-2 py-1 rounded-full text-xs font-medium ${CONFIRM_BADGE[r.confirmation_status] || 'bg-slate-100 text-slate-600'}`}>{r.confirmation_status}</span>
+                      <span className={`px-2 py-1 rounded-full text-xs font-semibold border ${CONFIRM_BADGE[r.confirmation_status] || 'bg-slate-100 text-slate-600 border-slate-300'}`}>{r.confirmation_status}</span>
                     );
                   case 'confirmed_by':
                     return r.last_modified_by_name ? (
@@ -568,17 +587,22 @@ const DispatchSchedulePage = ({ todayOnly = false }) => {
                 }
               };
               return (
-                <tr key={r.id} data-testid={`sched-${r.id}`}>
+                <tr
+                  key={r.id}
+                  data-testid={`sched-${r.id}`}
+                  data-shift={r.shift_type || ''}
+                  className={rowBgClass}
+                >
                   {visibleCols.map((c, i) => (
                     <td
                       key={c.key}
-                      className={`px-3 py-2 ${i === 0 ? stickyFirstTd : ''}`}
+                      className={`px-3 py-2 ${cellBorder} ${i === 0 ? stickyFirstTd : ''}`}
                       data-testid={`cell-${c.key}-${r.id}`}
                     >
                       {cellFor(c.key)}
                     </td>
                   ))}
-                  <td className="px-3 py-2 text-right whitespace-nowrap sticky right-0 z-10 bg-white dark:bg-[#18181B]">
+                  <td className={`px-3 py-2 text-right whitespace-nowrap ${cellBorder} ${stickyLastTd}`}>
                     {(canEdit || canCancel || canDelete) ? (
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>
@@ -611,6 +635,17 @@ const DispatchSchedulePage = ({ todayOnly = false }) => {
             })}
           </tbody>
         </table>
+
+        {/* Legend */}
+        <div className="flex items-center gap-4 flex-wrap px-4 py-2 text-xs text-[#64748B] border-t border-[#E2E8F0] dark:border-[#27272A] bg-white dark:bg-[#18181B]">
+          <span className="font-semibold text-[#0F172A] dark:text-[#FAFAFA]">Shift colours:</span>
+          {Object.entries(SHIFT_ROW_BG).map(([k, cls]) => (
+            <span key={k} className="inline-flex items-center gap-2">
+              <span className={`w-4 h-4 rounded border border-[#E2E8F0] dark:border-[#27272A] ${cls}`} />
+              {k}
+            </span>
+          ))}
+        </div>
       </div>
 
       {/* Pagination */}

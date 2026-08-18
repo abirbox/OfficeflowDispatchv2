@@ -28,9 +28,9 @@ export const STATUS_BADGE = {
 };
 
 export const CONFIRM_BADGE = {
-  Confirmed: 'bg-emerald-100 text-emerald-700',
-  Pending: 'bg-amber-100 text-amber-700',
-  Declined: 'bg-rose-100 text-rose-700',
-  'No Response': 'bg-slate-200 text-slate-700',
-  'Not Confirmed': 'bg-slate-100 text-slate-600',
+  Confirmed:      'bg-emerald-100 text-emerald-800 border-emerald-300 dark:bg-emerald-950/60 dark:text-emerald-300 dark:border-emerald-800',
+  Pending:        'bg-amber-100 text-amber-800 border-amber-300 dark:bg-amber-950/60 dark:text-amber-300 dark:border-amber-800',
+  Declined:       'bg-rose-100 text-rose-800 border-rose-300 dark:bg-rose-950/60 dark:text-rose-300 dark:border-rose-800',
+  'No Response':  'bg-violet-100 text-violet-800 border-violet-300 dark:bg-violet-950/60 dark:text-violet-300 dark:border-violet-800',
+  'Not Confirmed':'bg-slate-100 text-slate-700 border-slate-300 dark:bg-slate-800 dark:text-slate-200 dark:border-slate-600',
 };
