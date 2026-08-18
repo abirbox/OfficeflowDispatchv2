@@ -209,16 +209,13 @@ const DispatchSchedulePage = ({ todayOnly = false }) => {
   // called out separately). Returns null when no override applies.
   const columnCellBg = (key) => {
     if (key === 'date') return 'bg-[#fbc9ff]';
-    if (key === 'officer') return 'bg-[#E0E7FF] dark:bg-[#3730A3]/60';
+    if (key === 'officer') return 'bg-[rgb(232,250,255)] dark:bg-[rgb(232,250,255)]';
     return null;
   };
-  // Per-column border colour override. Officer cells sit on a light-indigo
-  // fill that clashes with the default #E2E8F0 border, so give them a
-  // stronger indigo border that stays visible on the tint.
-  const columnCellBorder = (key) => {
-    if (key === 'officer') return 'border-indigo-400 dark:border-indigo-500';
-    return null;
-  };
+  // Per-column border colour override. Currently unused — kept for future
+  // per-column accents. Returns null so every column shares the default
+  // cellBorder colour.
+  const columnCellBorder = (_key) => null;
   // Per-column text colour accents (city green, post pin red).
   const columnCellText = (key) => {
     if (key === 'city') return 'text-emerald-600 dark:text-emerald-400 font-semibold';
