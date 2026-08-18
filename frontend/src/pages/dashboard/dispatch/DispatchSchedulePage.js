@@ -347,7 +347,7 @@ const DispatchSchedulePage = ({ todayOnly = false }) => {
       <div className="bg-white dark:bg-[#18181B] border border-[#E2E8F0] dark:border-[#27272A] rounded-xl overflow-x-auto">
         <table className="w-full min-w-[1800px] text-sm table-auto">
           <thead className="bg-[#F8FAFC] dark:bg-[#0F0F11] text-left text-xs uppercase tracking-wider text-[#64748B]">
-            <tr>
+            <tr className="whitespace-nowrap">
               <th className="px-3 py-3">Date</th>
               <th className="px-3 py-3">Shift</th>
               <th className="px-3 py-3">Start Time</th>
@@ -454,8 +454,8 @@ const DispatchSchedulePage = ({ todayOnly = false }) => {
                   ) : <span className="text-[#64748B]">—</span>}
                 </td>
                 <td className="px-3 py-2 max-w-[220px]">
-                  <span className="line-clamp-2 text-[#334155] dark:text-[#E4E4E7]" title={r.remarks || ''} data-testid={`sched-remarks-${r.id}`}>
-                    {r.remarks || '—'}
+                  <span className="line-clamp-2 text-[#334155] dark:text-[#E4E4E7]" title={r.last_modified_remarks || r.remarks || ''} data-testid={`sched-remarks-${r.id}`}>
+                    {r.last_modified_remarks || r.remarks || '—'}
                   </span>
                 </td>
                 <td className="px-3 py-2">{r.client_name || '—'}</td>

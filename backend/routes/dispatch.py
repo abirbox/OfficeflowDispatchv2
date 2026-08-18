@@ -404,14 +404,17 @@ async def _log_action(db, schedule_id: str, actor: dict, action: str,
         "actor_role": actor.get("role"),
         "at": now,
     })
+    set_doc = {
+        "last_modified_by_id": str(actor.get("_id")),
+        "last_modified_by_name": actor.get("name"),
+        "last_modified_action": action,
+        "last_modified_at": now,
+    }
+    if remarks is not None and str(remarks).strip() != "":
+        set_doc["last_modified_remarks"] = remarks
     await db.dispatch_schedules.update_one(
         {"_id": _oid(schedule_id)},
-        {"$set": {
-            "last_modified_by_id": str(actor.get("_id")),
-            "last_modified_by_name": actor.get("name"),
-            "last_modified_action": action,
-            "last_modified_at": now,
-        }}
+        {"$set": set_doc},
     )
 
 
@@ -515,6 +518,8 @@ async def create_schedule(payload: ScheduleCreate, request: Request, db=Depends(
     doc["last_modified_by_name"] = user.get("name")
     doc["last_modified_action"] = "Created"
     doc["last_modified_at"] = _now()
+    if doc.get("remarks"):
+        doc["last_modified_remarks"] = doc.get("remarks")
     res = await db.dispatch_schedules.insert_one(doc)
     await db.dispatch_action_history.insert_one({
         "schedule_id": str(res.inserted_id),
@@ -669,10 +674,12 @@ async def update_schedule(sid: str, payload: ScheduleUpdate, request: Request, d
     new_snapshot = {k: upd.get(k) for k in upd.keys() if k not in ("updated_by", "updated_at", "duty_hours")}
     if "shift_status" in upd:
         await _log_action(db, sid, user, upd["shift_status"],
-                          old_value=existing.get("shift_status"), new_value=upd["shift_status"])
+                          old_value=existing.get("shift_status"), new_value=upd["shift_status"],
+                          remarks=upd.get("remarks"))
     elif new_snapshot:
         await _log_action(db, sid, user, "Edited",
-                          old_value=old_snapshot, new_value=new_snapshot)
+                          old_value=old_snapshot, new_value=new_snapshot,
+                          remarks=upd.get("remarks"))
     await _audit(db, user, "update", "schedule", sid,
                  f"{existing.get('date')} {existing.get('shift_type')}",
                  changes=new_snapshot or None)
